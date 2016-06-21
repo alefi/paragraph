@@ -1,0 +1,28 @@
+[
+  {
+    "roles":
+    [
+      "admin"
+    ],
+    "allows":
+      [
+        {
+          "resources":
+              [
+                "/logout"
+              ],
+            "permissions": [ "post" ]
+        },        
+        {
+          "resources":
+            [
+              "/authors",
+              "/books",
+              "/stores",
+              "/users"
+            ],
+          "permissions": [ "get", "put", "patch", "post", "delete" ]
+        }
+      ]
+  }
+]

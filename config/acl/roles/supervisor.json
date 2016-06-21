@@ -1,0 +1,22 @@
+[
+  {
+    "roles": "supervisor",
+    "allows":
+      [
+        {
+          "resources":
+            [
+              "/logout"
+            ],
+          "permissions": [ "post" ]
+        },
+        {
+          "resources":
+            [
+              "/stores"
+            ],
+          "permissions": [ "get", "patch", "put", "post" ]
+        }
+      ]
+  }
+]

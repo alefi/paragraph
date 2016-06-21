@@ -1,0 +1,6 @@
+.env
+node_modules
+npm-debug.log
+*.zip
+.DS_store
+bundle.js
