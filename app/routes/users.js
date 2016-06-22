@@ -15,7 +15,7 @@ module.exports = router => {
   /* Protect all routes */
   router.all('*', auth.secureRoute)
 
-  /* Agents allowed only GET */
+  /* Check role */
   router.all('*', auth.checkPrivilege)
 
   /* This will handle the url calls for /users/:userId */

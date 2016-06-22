@@ -71,7 +71,7 @@ module.exports = router => {
         return res.json({
           success: true,
           message: 'Автор отредактирован.',
-          user: r.value
+          author: r.value
         })
       } else {
         winston.debug(r)

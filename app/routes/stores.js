@@ -68,7 +68,10 @@ module.exports = router => {
     /* Modify existing user */
     const modStore = {
       name: req.body.name,
-      stock: req.body.stock
+      stock: req.body.stock.map(item => ({
+        bookId: toObjectId(item.bookId),
+        quantity: item.quantity
+      }))
     }
     db.collection('stores').findOneAndUpdate({ _id: ObjectId(storeId) },
     { $set: modStore },
@@ -140,7 +143,10 @@ module.exports = router => {
     /* Create new store */
     const newStore = {
       name: req.body.name,
-      stock: req.body.stock || []
+      stock: req.body.stock.map(item => ({
+        bookId: toObjectId(item.bookId),
+        quantity: item.quantity
+      }))
     }
 
     db.collection('stores').insertOne(newStore)
