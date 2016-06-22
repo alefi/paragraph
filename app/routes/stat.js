@@ -24,9 +24,23 @@ module.exports = router => {
       case ('books-in-stores'):
         db.collection('stores').aggregate([
           { $unwind: '$stock' },
+          { $lookup:
+            { from: 'books',
+              localField: 'stock.bookId',
+              foreignField: '_id',
+              as: 'books'
+            }
+          },
+          { $unwind: '$books' },
           { $group:
-            { _id: '$stock.bookId',
+            { _id: { _id: '$stock.bookId', name: '$books.name' },
               total: { $sum: '$stock.quantity' }
+            }
+          },
+          { $project:
+            { _id: '$_id._id',
+              name: '$_id.name',
+              total: '$total'
             }
           },
           { $sort: { _id: 1 } }
@@ -38,7 +52,6 @@ module.exports = router => {
           }
         })
         break
-
       default:
         return res.json({
           success: false,
