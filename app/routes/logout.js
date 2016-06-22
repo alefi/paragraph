@@ -17,7 +17,6 @@ module.exports = router => {
   router.route('/:userLogin')
   /* Sends res for delete token */
   .post((req, res, next) => {
-    console.log('!!!!!!!!!!!!!!')
     const token = auth.getToken(req.headers)
     auth.purgeToken(token)
     .then(result => res.json(result))

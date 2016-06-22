@@ -6,6 +6,7 @@
 const auth = require('./../helpers/auth')
 const db = require('./../helpers/server').db
 const ObjectId = require('mongodb').ObjectId
+const toObjectId = require('./../helpers/common').toObjectId
 const validator = require('validator')
 const winston = require('winston')
 
@@ -57,7 +58,7 @@ module.exports = router => {
     /* Modify existing user */
     const modAuthor = {
       born: req.body.born,
-      books: req.body.books,
+      books: toObjectId(req.body.books),
       comments: req.body.comments,
       city: req.body.city,
       name: req.body.name
@@ -87,6 +88,40 @@ module.exports = router => {
     })
   })
 
+  .delete((req, res, next) => {
+    let authorId
+
+    if (req.params.authorId && validator.isMongoId('' + req.params.authorId)) {
+      authorId = req.params.authorId
+    } else {
+      return res.json({
+        success: false,
+        messsage: 'Wrong author\'s Id provided.'
+      })
+    }
+    db.collection('authors').findOneAndDelete({ _id: ObjectId(authorId) })
+    .then(r => {
+      if (r.lastErrorObject.n === 1) {
+        return res.json({
+          success: true,
+          message: 'Автор удален.',
+          user: r.value
+        })
+      } else {
+        winston.debug(r)
+        return res.json({
+          success: false,
+          message: 'Ошибка при удалении.'
+        })
+      }
+    })
+    .catch(err => {
+      winston.debug(err)
+      res.status(500)
+      return next(err)
+    })
+  })
+
   router.route('/')
 
   .get((req, res, next) => {
@@ -106,8 +141,8 @@ module.exports = router => {
     /* Create new author */
     const newAuthor = {
       born: req.body.born,
-      books: req.body.books || [],
-      comments: req.body.comments || '',
+      books: toObjectId(req.body.books),
+      comments: req.body.comments,
       city: req.body.city,
       name: req.body.name
     }

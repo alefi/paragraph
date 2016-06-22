@@ -47,11 +47,11 @@ module.exports = new class Server {
       winston.info('[SERVER] Router initialized successful.')
 
       /* Development and test only */
-      if (this.app.get('env') !== 'production') {
+      if (this.app.get('env') === 'development') {
         this.app.use(morgan('dev'))
         this.app.locals.pretty = true
       } else {
-        this.app.use(morgan('common'))
+        this.app.use(morgan('short'))
       }
 
       /**

@@ -7,6 +7,7 @@ const auth = require('./../helpers/auth')
 const db = require('./../helpers/server').db
 const merge = require('merge')
 const ObjectId = require('mongodb').ObjectId
+const toObjectId = require('./../helpers/common').toObjectId
 const validator = require('validator')
 const winston = require('winston')
 
@@ -35,7 +36,8 @@ module.exports = router => {
     { _id: 1,
       login: 1,
       isActive: 1,
-      roles: 1
+      roles: 1,
+      stores: 1
     }).limit(1).next((err, user) => {
       if (err) {
         res.status(500)
@@ -61,11 +63,12 @@ module.exports = router => {
     const modUser = {
       login: req.body.login,
       isActive: req.body.isActive,
-      roles: req.body.roles
+      roles: req.body.roles,
+      stores: toObjectId(req.body.stores)
     }
     db.collection('users').findOneAndUpdate({ _id: ObjectId(userId) },
     { $set: modUser },
-    { projection: { _id: 1, login: 1, isActive: 1, roles: 1 },
+    { projection: { _id: 1, login: 1, isActive: 1, roles: 1, stores: 1 },
       returnOriginal: false
     })
     .then(r => {
@@ -90,14 +93,58 @@ module.exports = router => {
     })
   })
 
+  .delete((req, res, next) => {
+    let userId
+
+    if (req.params.userId && validator.isMongoId('' + req.params.userId)) {
+      userId = req.params.userId
+    } else {
+      return res.json({
+        success: false,
+        messsage: 'Wrong user\'s Id provided.'
+      })
+    }
+    /* User should't delete himself anyway */
+    db.collection('users').findOneAndDelete({
+      $and:
+      [
+        { _id: ObjectId(userId) },
+        { _id: { $ne: ObjectId(req.user._id) } }
+      ]
+    },
+    { projection: { _id: 1, login: 1, isActive: 1, roles: 1, stores: 1 }
+    })
+    .then(r => {
+      if (r.lastErrorObject.n === 1) {
+        return res.json({
+          success: true,
+          message: 'Пользователь удален.',
+          user: r.value
+        })
+      } else {
+        winston.debug(r)
+        return res.json({
+          success: false,
+          message: 'Ошибка при удалении.'
+        })
+      }
+    })
+    .catch(err => {
+      winston.debug(err)
+      res.status(500)
+      return next(err)
+    })
+  })
+
   router.route('/')
 
   .get((req, res, next) => {
     db.collection('users').find({}, {
       _id: 1,
+      isActive: 1,
       login: 1,
       roles: 1,
-      isActive: 1
+      stores: 1
     })
     .toArray((err, users) => {
       if (err) {
@@ -115,7 +162,8 @@ module.exports = router => {
     const newUser = merge({
       login: req.body.login,
       isActive: req.body.isActive,
-      roles: req.body.roles
+      roles: req.body.roles,
+      stores: toObjectId(req.body.stores)
     }, auth.setPassword(req.body.password))
 
     if (newUser.hashedPassword) {

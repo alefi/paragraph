@@ -5,7 +5,14 @@
 
 const auth = require('./../helpers/auth')
 const db = require('./../helpers/server').db
+const ObjectId = require('mongodb').ObjectId
+const toObjectId = require('./../helpers/common').toObjectId
 const validator = require('validator')
+const winston = require('winston')
+
+function isAdmin (user) {
+  return user.roles.indexOf('admin') >= 0
+}
 
 module.exports = router => {
   /* Protect all routes */
@@ -19,28 +26,72 @@ module.exports = router => {
 
   .get((req, res, next) => {
     let storeId
+    let query
 
     if (req.params.storeId && validator.isMongoId('' + req.params.storeId)) {
       storeId = req.params.storeId
     } else {
       return res.json({
         success: false,
-        messsage: 'Wrong book\'s Id provided.'
+        messsage: 'Wrong store\'s Id provided.'
       })
     }
-    db.collection('stores').find({ _id: storeId })
+    if (isAdmin(req.user)) {
+      query = { _id: ObjectId(storeId) }
+    } else {
+      query = {
+        $and:
+          [ { _id: ObjectId(storeId) },
+            { _id: { $in: req.user.stores } } ]
+      }
+    }
+    db.collection('stores').find(query)
     .limit(1).next((err, store) => {
       if (err) {
         return next(err)
       }
-      if (!store) {
+      return res.json(store || [])
+    })
+  })
+
+  .put((req, res, next) => {
+    let storeId
+
+    if (req.params.storeId && validator.isMongoId('' + req.params.storeId)) {
+      storeId = req.params.storeId
+    } else {
+      return res.json({
+        success: false,
+        messsage: 'Wrong store\'s Id provided.'
+      })
+    }
+    /* Modify existing user */
+    const modStore = {
+      name: req.body.name,
+      stock: req.body.stock
+    }
+    db.collection('stores').findOneAndUpdate({ _id: ObjectId(storeId) },
+    { $set: modStore },
+    { returnOriginal: false })
+    .then(r => {
+      if (r.lastErrorObject.n === 1) {
         return res.json({
-          success: false,
-          message: 'Store was not found.'
+          success: true,
+          message: 'Магазин отредактирован.',
+          user: r.value
         })
       } else {
-        return res.json(store)
+        winston.debug(r)
+        return res.json({
+          success: false,
+          message: 'Ошибка при сохранении.'
+        })
       }
+    })
+    .catch(err => {
+      winston.debug(err)
+      res.status(500)
+      return next(err)
     })
   })
 
@@ -48,26 +99,68 @@ module.exports = router => {
 
   .get((req, res, next) => {
     /* Returns stores as JSON */
-    /* Get queries and limit support */
-    let query = {}
+    let query = []
 
-    /* Maximum store name length no more than 50 symbols */
-    if (req.query.q && req.query.q.length <= 50) {
-      query = { 'name': { '$regex': req.query.q, '$options': 'i' } }
+    if (req.user.roles) {
+      !isAdmin(req.user) && query.push(
+        { $match: { _id: ObjectId(req.user._id) } },
+        { $unwind: '$stores' },
+        { $lookup:
+          { from: 'stores',
+            localField: 'stores',
+            foreignField: '_id',
+            as: 'stores'
+          }
+        },
+        { $unwind: '$stores' },
+        { $project:
+          { _id: '$stores._id',
+            name: '$stores.name',
+            stock: '$stores.stock'
+          }
+        })
+      winston.debug('query is:')
+      winston.debug(query)
+
+      db.collection(isAdmin(req.user) ? 'stores' : 'users')
+      .aggregate(query, (err, stores) => {
+        if (err) {
+          return next(err)
+        } else {
+          return res.json(stores)
+        }
+      })
+    } else {
+      /* No property roles, somehow */
+      return res.json([])
     }
-    db.collection('stores').find(query, {_id: 1, name: 1, stock: 1})
-    .limit(+(req.query.limit || 10)).toArray((err, stores) => {
-      if (err) {
-        return next(err)
-      }
-      if (!stores) {
+  })
+
+  .post((req, res, next) => {
+    /* Create new store */
+    const newStore = {
+      name: req.body.name,
+      stock: req.body.stock || []
+    }
+
+    db.collection('stores').insertOne(newStore)
+    .then(r => {
+      if (r.insertedCount === 1) {
         return res.json({
-          success: false,
-          messsage: 'There are no stores found.'
+          success: true,
+          message: 'Новый магазин создан.'
         })
       } else {
-        return res.json(stores)
+        return res.json({
+          success: false,
+          message: 'Ошибка при сохранении.'
+        })
       }
+    })
+    .catch(err => {
+      winston.debug(err)
+      res.status(500)
+      return next(err)
     })
   })
 }
